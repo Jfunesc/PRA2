@@ -1,0 +1,369 @@
+---
+title: "PRA2"
+subtitle: "Visualització"
+authorID: "jfunesc"
+author: "José Ignacio Funes Castillo"
+date: "2024-06-18"
+output:
+  html_document:
+    highlight: default
+    number_sections: no
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+    includes:
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+  word_document: default
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Cargar la librería dplyr
+library(dplyr)
+library(ggplot2)
+
+# Mostrar el directorio de trabajo actual
+print(getwd())
+
+# Verificar si el archivo existe en la ruta especificada
+file_path <- "C:/Users/nfc98/OneDrive/Escritorio/Asignaturas Q1/Q4/Visualización/PRA2/Interrupcions_volunt_ries_d_embar_s__IVE__a_Catalunya_20240616.csv"
+if (!file.exists(file_path)) {
+  stop("El archivo no existe en la ruta especificada.")
+}
+
+# Leer el archivo CSV
+df <- read.csv(file_path, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+
+# Revisar las primeras filas del dataframe
+head(df)
+
+
+
+```
+
+```{r}
+# Resumen del dataset
+summary(df)
+```
+
+```{r}
+# Ver los nombres de las columnas
+names(df)
+```
+
+```{r}
+# Ver la estructura del dataset
+str(df)
+```
+
+```{r}
+sum(is.na(df))
+```
+
+```{r}
+# Convertir columnas a los tipos adecuados, por ejemplo, factores
+df$tipus.de.centre <- as.factor(df$tipus.de.centre)
+df$mètode <- as.factor(df$mètode)
+df$finançament.públic <- as.factor(df$finançament.públic)
+df$grup.d.edat <- as.factor(df$grup.d.edat)
+df$situació.de.convivència <- as.factor(df$situació.de.convivència)
+df$fills.a.càrrec <- as.factor(df$fills.a.càrrec)
+df$fills.vius <- as.factor(df$fills.vius)
+df$país.de.residència <- as.factor(df$país.de.residència)
+df$nom.de.la.comarca.de.residència <- as.factor(df$nom.de.la.comarca.de.residència)
+df$país.de.naixement <- as.factor(df$país.de.naixement)
+df$primera.nacionalitat <- as.factor(df$primera.nacionalitat)
+df$situació.laboral <- as.factor(df$situació.laboral)
+df$ingressos <- as.factor(df$ingressos)
+
+# Verificar los cambios
+str(df)
+
+
+```
+
+```{r}
+# Contar el número de interrupciones por año
+interrupciones_por_año <- df %>%
+  group_by(any) %>%
+  summarise(Total = sum(nombre.de.casos))
+
+# Visualizar la distribución de interrupciones por año
+ggplot(interrupciones_por_año, aes(x = any, y = Total)) +
+  geom_line(group = 1) +
+  geom_point() +
+  labs(title = "Distribución de Interrupciones Voluntarias de Embarazo por Año",
+       x = "Año", y = "Número de Interrupciones") +
+  theme_minimal()
+
+```
+
+```{r}
+# Filtrar el dataframe para incluir solo las mujeres con nacionalidad española
+df_espanolas <- df %>%
+  filter(país.de.naixement == "Espanya")
+# Visualizar la distribución de interrupciones por grupo de edad para mujeres españolas
+ggplot(df_espanolas, aes(x = grup.d.edat, y = nombre.de.casos, fill = grup.d.edat)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Interrupciones Voluntarias de Embarazo por Grupo de Edad Españolas",
+       x = "Grupo de Edad", y = "Número de Casos") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+```{r}
+# Filtrar el dataframe para incluir solo las mujeres nacidas en España
+df_fuera_nacidas <- df %>%
+  filter(país.de.naixement == "Fora d'Espanya")
+
+# Visualizar la distribución de interrupciones por grupo de edad para mujeres españolas
+ggplot(df_fuera_nacidas, aes(x = grup.d.edat, y = nombre.de.casos, fill = grup.d.edat)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Interrupciones Embarazo por Grupo de Edad no nacidas en ESP",
+       x = "Grupo de Edad", y = "Número de Casos") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+
+library(tidyr)
+# Agrupar y sumar los casos por grupo de edad para mujeres españolas nacidas en España
+df_espanolas_nacidas <- df %>%
+  filter(país.de.naixement == "Espanya") %>%
+  group_by(grup.d.edat) %>%
+  summarise(`Españolas Nacidas en España` = sum(nombre.de.casos))
+
+# Agrupar y sumar los casos por grupo de edad para mujeres españolas nacidas fuera de España
+df_espanolas_fuera <- df %>%
+  filter(país.de.naixement == "Fora d'Espanya") %>%
+  group_by(grup.d.edat) %>%
+  summarise(`Españolas Nacidas Fuera de España` = sum(nombre.de.casos))
+
+# Combinar los dataframes
+df_combinado <- full_join(df_espanolas_nacidas, df_espanolas_fuera, by = "grup.d.edat")
+
+# Reemplazar NAs con 0
+df_combinado[is.na(df_combinado)] <- 0
+
+# Convertir los datos en formato largo con gather (tidyr < 1.0.0)
+df_combinado_long <- gather(df_combinado, key = "Nacionalidad", value = "Número de Casos",
+                            `Españolas Nacidas en España`, `Españolas Nacidas Fuera de España`)
+
+# Visualizar la distribución de interrupciones por grupo de edad y nacionalidad española
+ggplot(df_combinado_long, aes(x = grup.d.edat, y = `Número de Casos`, fill = Nacionalidad)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Interrupciones de Embarazo por Grupo de Edad y Nacionalidad",
+       x = "Grupo de Edad", y = "Número de Casos") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("Españolas Nacidas en España" = "#1F77B4", "Españolas Nacidas Fuera de España" = "#FF7F0E"))
+
+
+
+
+```
+
+```{r}
+# Contar el número de casos por método
+metodos_frecuencia <- df %>%
+  group_by(mètode) %>%
+  summarise(Total = sum(nombre.de.casos)) %>%
+  arrange(desc(Total))
+
+# Seleccionar los 5 métodos más utilizados
+top_5_metodos <- metodos_frecuencia %>%
+  top_n(5, Total)
+
+# Filtrar el dataframe original para incluir solo los top 5 métodos
+df_top_5 <- df %>%
+  filter(mètode %in% top_5_metodos$mètode)
+
+# Visualizar la distribución de interrupciones por los 5 métodos más utilizados
+ggplot(df_top_5, aes(x = mètode, y = nombre.de.casos, fill = mètode)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Distribución de Interrupciones Voluntarias de Embarazo por Método",
+       x = "Método", y = "Número de Casos") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+```{r}
+# Visualizar la distribución de interrupciones por situación laboral
+ggplot(df, aes(x = situació.laboral, y = nombre.de.casos, fill = situació.laboral)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Interrupciones Voluntarias de Embarazo por Situación Laboral",
+       x = "Situación Laboral", y = "Número de Casos") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+# Filtrar el dataframe para incluir solo las mujeres con nacionalidad española
+df_espanolas <- df %>%
+  filter(país.de.naixement == "Espanya")
+
+# Agrupar y sumar los casos por situación laboral para mujeres españolas
+df_espanolas_situacion <- df_espanolas %>%
+  group_by(situació.laboral) %>%
+  summarise(`Españolas` = sum(nombre.de.casos))
+
+# Filtrar el dataframe para incluir solo las mujeres con nacionalidad no española
+df_no_espanolas <- df %>%
+  filter(país.de.naixement != "Espanya")
+
+# Agrupar y sumar los casos por situación laboral para mujeres no españolas
+df_no_espanolas_situacion <- df_no_espanolas %>%
+  group_by(situació.laboral) %>%
+  summarise(`No Españolas` = sum(nombre.de.casos))
+
+# Combinar los dataframes
+df_combinado_situacion <- full_join(df_espanolas_situacion, df_no_espanolas_situacion, by = "situació.laboral")
+
+# Reemplazar NAs con 0
+df_combinado_situacion[is.na(df_combinado_situacion)] <- 0
+
+# Convertir los datos en formato largo con gather (tidyr < 1.0.0)
+df_combinado_situacion_long <- gather(df_combinado_situacion, key = "Nacionalidad", value = "Número de Casos",
+                                      `Españolas`, `No Españolas`)
+
+# Visualizar la distribución de interrupciones por situación laboral y nacionalidad
+ggplot(df_combinado_situacion_long, aes(x = situació.laboral, y = `Número de Casos`, fill = Nacionalidad)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Interrupciones Voluntarias de Embarazo por Situación Laboral y Nacionalidad",
+       x = "Situación Laboral", y = "Número de Casos") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("Españolas" = "#1F77B4", "No Españolas" = "#FF7F0E"))
+
+```
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# Filtrar el dataframe para incluir solo las mujeres con nacionalidad española
+df_espanolas <- df %>%
+  filter(país.de.naixement == "Espanya")
+
+# Filtrar el dataframe para incluir solo las mujeres con nacionalidad no española
+df_no_espanolas <- df %>%
+  filter(país.de.naixement != "Espanya")
+
+# Agrupar por situación laboral, grupo de edad y nacionalidad para mujeres españolas
+df_espanolas_situacion_edad <- df_espanolas %>%
+  group_by(situació.laboral, grup.d.edat, Nacionalidad = "Españolas") %>%
+  summarise(`Número de Casos` = sum(nombre.de.casos))
+
+# Agrupar por situación laboral, grupo de edad y nacionalidad para mujeres no españolas
+df_no_espanolas_situacion_edad <- df_no_espanolas %>%
+  group_by(situació.laboral, grup.d.edat, Nacionalidad = "No Españolas") %>%
+  summarise(`Número de Casos` = sum(nombre.de.casos))
+
+# Combinar los dataframes
+df_combinado_situacion_edad <- bind_rows(df_espanolas_situacion_edad, df_no_espanolas_situacion_edad)
+
+# Asegurar que Nacionalidad sea factor con el orden correcto
+df_combinado_situacion_edad$Nacionalidad <- factor(df_combinado_situacion_edad$Nacionalidad,
+                                                  levels = c("Españolas", "No Españolas"))
+
+# Visualizar la distribución de interrupciones por situación laboral, grupo de edad y nacionalidad
+ggplot(df_combinado_situacion_edad, aes(x = grup.d.edat, y = `Número de Casos`, fill = Nacionalidad)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ situació.laboral, scales = "free_x") +
+  labs(title = "Interrupciones Voluntarias de Embarazo por Grupo de Edad y Nacionalidad",
+       x = "Grupo de Edad", y = "Número de Casos") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("Españolas" = "#1F77B4", "No Españolas" = "#FF7F0E"),
+                    name = "Nacionalidad")
+
+
+```
+
+```{r}
+# Calcular el total de casos
+total_casos <- sum(df$nombre.de.casos)
+
+# Agrupar por país de nacimiento y calcular el porcentaje de cada país
+df_porcentajes <- df %>%
+  group_by(país.de.naixement) %>%
+  summarise(Total = sum(nombre.de.casos)) %>%
+  mutate(Porcentaje = (Total / total_casos) * 100)
+
+# Ordenar el dataframe por Porcentaje descendente para la visualización correcta en el gráfico de tarta
+df_porcentajes <- df_porcentajes %>%
+  arrange(desc(Porcentaje))
+
+# Verificar el dataframe con porcentajes
+head(df_porcentajes)
+
+# Visualizar la distribución de interrupciones por país de nacimiento en gráfico de tarta
+ggplot(df_porcentajes, aes(x = "", y = Porcentaje, fill = país.de.naixement)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  labs(title = "Interrupciones Voluntarias de Embarazo por País de Nacimiento",
+       fill = "País de Nacimiento", x = NULL, y = NULL) +
+  theme_void() +
+  theme(legend.position = "right") +
+  geom_text(aes(label = paste0(round(Porcentaje, 1), "%")),
+            position = position_stack(vjust = 0.5)) +
+  guides(fill = guide_legend(title = "País de Nacimiento"))
+
+
+
+```
+
+```{r}
+# Agrupar por comarca y contar el número de registros
+df_agrupado <- df %>%
+  group_by(nom.de.la.comarca.de.residència) %>%
+  summarise(total_casos_aborto = sum(nombre.de.casos)) %>%
+  arrange(desc(total_casos_aborto))  # Ordenar de mayor a menor número de casos de aborto
+
+# Seleccionar las 10 comarcas con más casos de aborto
+top10_comarcas <- head(df_agrupado, 10)
+
+# Mostrar el resultado
+print(top10_comarcas)
+
+```
+
+```{r}
+# Crear el dataframe dftasa
+dftasa <- data.frame(
+  comarcas = c("Barcelonès", "Vallès Occidental", "Baix Llobregat", "Vallès Oriental", "Maresme", "Tarragonès", "Gironès", "Segrià", "Alt Empordà"),
+  casos_aborto = c(133042, 35849, 30355, 15039, 14921, 10746, 9940, 8832, 7195),
+  poblaciones = c(2268056, 940969, 828889,417265,457583, 264094, 192687, 209149, 141432)
+)
+
+# Calcular la tasa de aborto por cada 1,000 habitantes
+dftasa <- dftasa %>%
+  mutate(tasa_aborto_por_1000 = (casos_aborto / poblaciones) * 1000)
+
+# Ordenar de mayor a menor tasa de aborto
+dftasa <- dftasa %>%
+  arrange(desc(tasa_aborto_por_1000))
+
+# Mostrar el resultado final
+dftasa
+
+```
+
+No ha sigut necessari per a poder plasmar les visualitzacions en Tableu ninguna transformació respecte el dataset original.
+Tot lo fet en R es un afegit per a enriquir el projecte.
